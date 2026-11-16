@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Installs HAProxy and load balances web-01 and web-02 with roundrobin
+WEB01_IP="10.30.30.65"
+WEB02_IP="10.30.9.7"
+
+sudo apt-get -y update
+sudo apt-get -y install haproxy
+
+# Allow HAProxy to be managed via its init script
+sudo sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/haproxy
+grep -q "^ENABLED=1" /etc/default/haproxy || echo "ENABLED=1" | sudo tee -a /etc/default/haproxy > /dev/null
+
+sudo tee /etc/haproxy/haproxy.cfg > /dev/null <<EOF
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    user haproxy
+    group haproxy
+    daemon
+    h1-case-adjust x-served-by X-Served-By
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+
+frontend http-in
+    bind *:80
+    option h1-case-adjust-bogus-client
+    default_backend web-backend
+
+backend web-backend
+    balance roundrobin
+    server 7396-web-01 ${WEB01_IP}:80 check
+    server 7396-web-02 ${WEB02_IP}:80 check
+EOF
+
+sudo haproxy -c -f /etc/haproxy/haproxy.cfg
+sudo service haproxy restart
