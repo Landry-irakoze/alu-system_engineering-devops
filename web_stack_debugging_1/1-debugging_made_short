@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Fixes Nginx on port 80, then removes its pid file so init reports it as not running
+ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+service nginx restart
+rm /run/nginx.pid
